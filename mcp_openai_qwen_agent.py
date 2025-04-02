@@ -8,6 +8,9 @@ import asyncio
 from dotenv import load_dotenv
 load_dotenv()
 
+# Global VERBOSE flag for logging
+VERBOSE = 1  # Set to 1 to enable verbose logging, 0 to disable
+
 MODEL_ID = "qwen2.5-coder:14b-instruct-q4_K_M"
 
 # System prompt that guides the LLM's behavior and capabilities
@@ -90,8 +93,16 @@ class MCPClient:
             raise RuntimeError("Not connected to MCP server")
 
         async def callable(*args, **kwargs):
+            if VERBOSE == 1:
+                print(f"\n[TOOL INPUT] {tool_name}: {json.dumps(kwargs, indent=2)}")
+            
             response = await self.session.call_tool(tool_name, arguments=kwargs)
-            return response.content[0].text
+            result = response.content[0].text
+            
+            if VERBOSE == 1:
+                print(f"[TOOL OUTPUT] {tool_name}: {result}")
+                
+            return result
 
         return callable
 
@@ -129,6 +140,15 @@ async def agent_loop(query: str, tools: dict, messages: List[dict] = None):
     # add user query to the messages list
     messages.append({"role": "user", "content": query})
 
+    if VERBOSE == 1:
+        print("\n[MODEL INPUT]")
+        for msg in messages:
+            role = msg["role"]
+            content = msg.get("content", "")
+            print(f"  {role}: {content[:100]}{'...' if len(content) > 100 else ''}")
+        if len(tools) > 0:
+            print(f"  tools: {[t['name'] for t in tools.values()]}")
+
     # Query LLM with the system prompt, user query, and available tools
     first_response = await client.chat.completions.create(
         model=MODEL_ID,
@@ -137,6 +157,13 @@ async def agent_loop(query: str, tools: dict, messages: List[dict] = None):
         max_tokens=4096,
         temperature=0,
     )
+    
+    if VERBOSE == 1:
+        print("\n[MODEL OUTPUT]")
+        print(f"  content: {first_response.choices[0].message.content}")
+        if first_response.choices[0].message.tool_calls:
+            print(f"  tool_calls: {first_response.choices[0].message.tool_calls}")
+    
     # detect how the LLM call was completed:
     # tool_calls: if the LLM used a tool
     # stop: If the LLM generated a general response, e.g. "Hello, how can I help you today?"
@@ -174,11 +201,22 @@ async def agent_loop(query: str, tools: dict, messages: List[dict] = None):
                 }
             )
 
+        if VERBOSE == 1:
+            print("\n[MODEL INPUT WITH TOOL RESULTS]")
+            for msg in messages:
+                role = msg["role"]
+                content = msg.get("content", "")
+                print(f"  {role}: {content[:100]}{'...' if len(content) > 100 else ''}")
+
         # Query LLM with the user query and the tool results
         new_response = await client.chat.completions.create(
             model=MODEL_ID,
             messages=messages,
         )
+        
+        if VERBOSE == 1:
+            print("\n[MODEL FINAL OUTPUT]")
+            print(f"  content: {new_response.choices[0].message.content}")
 
     elif stop_reason == "stop":
         # If the LLM stopped on its own, use the first response
@@ -216,10 +254,17 @@ async def main():
         env=None,
     )
 
+    if VERBOSE == 1:
+        print("[SYSTEM] Starting MCP client...")
+
     # Start MCP client and create interactive session
     async with MCPClient(server_params) as mcp_client:
         # Get available database tools and prepare them for the LLM
         mcp_tools = await mcp_client.get_available_tools()
+        
+        if VERBOSE == 1:
+            print(f"[SYSTEM] Available tools: {[tool.name for tool in mcp_tools]}")
+            
         # Convert MCP tools into a format the LLM can understand and use
         tools = {
             tool.name: {
@@ -241,6 +286,9 @@ async def main():
             != "list_tables"  # Excludes list_tables tool as it has an incorrect schema
         }
 
+        if VERBOSE == 1:
+            print("[SYSTEM] MCP client successfully initialized")
+
         # Start interactive prompt loop for user queries
         messages = None
         while True:
@@ -251,7 +299,11 @@ async def main():
                     break
 
                 # Process the prompt and run agent loop
+                if VERBOSE == 1:
+                    print(f"[USER INPUT] {user_input}")
+                    
                 response, messages = await agent_loop(user_input, tools, messages)
+                
                 print("\nResponse:", response)
                 # print("\nMessages:", messages)
             except KeyboardInterrupt:
