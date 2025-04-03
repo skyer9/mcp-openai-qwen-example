@@ -5,6 +5,18 @@
 Run the following command
 
 ```bash
+git clone https://github.com/skyer9/mcp-openai-qwen-example.git
+cd mcp-openai-qwen-example
+
+python -m venv venv
+
+# Linux/Mac/WSL
+source venv/bin/activate
+# Window
+# venv\Scripts\activate
+
+pip install openai mcp
+
 python mcp_openai_qwen_agent.py
 ```
 
