@@ -5,9 +5,6 @@ from mcp.client.stdio import stdio_client
 from typing import Any, List
 import asyncio
 
-from dotenv import load_dotenv
-load_dotenv()
-
 # Global VERBOSE flag for logging
 VERBOSE = 1  # Set to 1 to enable verbose logging, 0 to disable
 
@@ -73,10 +70,9 @@ class MCPClient:
         if not self.session:
             raise RuntimeError("Not connected to MCP server")
 
-        tools = await self.session.list_tools()
-        _, tools_list = tools
-        _, tools_list = tools_list
-        return tools_list
+        response = await self.session.list_tools()
+
+        return response.tools
 
     def call_tool(self, tool_name: str) -> Any:
         """
