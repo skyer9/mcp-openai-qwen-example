@@ -141,7 +141,8 @@ async def agent_loop(query: str, tools: dict, messages: List[dict] = None):
         for msg in messages:
             role = msg["role"]
             content = msg.get("content", "")
-            print(f"  {role}: {content[:100]}{'...' if len(content) > 100 else ''}")
+            # print(f"  {role}: {content[:100]}{'...' if len(content) > 100 else ''}")
+            print(f"  {role}: {content}")
         if len(tools) > 0:
             print(f"  tools: {[t['name'] for t in tools.values()]}")
 
@@ -202,7 +203,8 @@ async def agent_loop(query: str, tools: dict, messages: List[dict] = None):
             for msg in messages:
                 role = msg["role"]
                 content = msg.get("content", "")
-                print(f"  {role}: {content[:100]}{'...' if len(content) > 100 else ''}")
+                # print(f"  {role}: {content[:100]}{'...' if len(content) > 100 else ''}")
+                print(f"  {role}: {content}")
 
         # Query LLM with the user query and the tool results
         new_response = await client.chat.completions.create(
